@@ -248,16 +248,7 @@ const ProductOptions = {
                             <span class="image-label">${item.name}</span>
                             ${item.price ? `<span class="image-price">+${item.price}€</span>` : ''}
                             <span class="check-overlay"><i class="fas fa-check-circle"></i></span>
-                            ${isAccessoire ? `
-                            <div class="accessory-qty-controls" onclick="event.stopPropagation()">
-                                <button type="button" class="qty-btn qty-minus" onclick="ProductOptions.changeAccessoryQty(this, '${productHandle}', -1)">
-                                    <i class="fas fa-minus"></i>
-                                </button>
-                                <span class="qty-value">0</span>
-                                <button type="button" class="qty-btn qty-plus" onclick="ProductOptions.changeAccessoryQty(this, '${productHandle}', 1)">
-                                    <i class="fas fa-plus"></i>
-                                </button>
-                            </div>` : ''}
+                            ${isAccessoire ? `<div class="accessory-qty-badge" onclick="event.stopPropagation()"><span class="qty-minus" onclick="ProductOptions.changeAccessoryQty(this, '${productHandle}', -1)">−</span><span class="qty-value">1</span><span class="qty-plus" onclick="ProductOptions.changeAccessoryQty(this, '${productHandle}', 1)">+</span></div>` : ''}
                         </button>
                     `).join('')}
                 </div>
