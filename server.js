@@ -2917,7 +2917,7 @@ app.post('/api/checkout/custom', async (req, res) => {
                             // Alternative: construct direct checkout URL
                             if (order.checkout_token) {
                                 const storeSlug = (process.env.SHOPIFY_STORE || 'myflowers-secours').replace('.myshopify.com', '');
-                                checkoutUrl = `https://${storeSlug}.myshopify.com/${order.checkout_id}/checkouts/${order.checkout_token}`;
+                                checkoutUrl = `https://${storeSlug}.myshopify.com/checkouts/${order.checkout_token}`;
                             }
                         }
                     }
