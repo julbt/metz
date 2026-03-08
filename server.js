@@ -2908,18 +2908,8 @@ app.post('/api/checkout/custom', async (req, res) => {
                     const order = orderResult.order;
                     
                     if (order) {
-                        // Use order_status_url for payment - this is immediately available
+                        // Use order_status_url — this is the official Shopify payment page
                         checkoutUrl = order.order_status_url;
-                        
-                        // If order is unpaid, we can use the checkout_url or construct payment link
-                        if (order.financial_status === 'pending' || order.financial_status === 'unpaid') {
-                            // The order_status_url should allow payment completion
-                            // Alternative: construct direct checkout URL
-                            if (order.checkout_token) {
-                                const storeSlug = (process.env.SHOPIFY_STORE || 'myflowers-secours').replace('.myshopify.com', '');
-                                checkoutUrl = `https://${storeSlug}.myshopify.com/checkouts/${order.checkout_token}`;
-                            }
-                        }
                     }
                 }
                 
@@ -2947,11 +2937,9 @@ app.post('/api/checkout/custom', async (req, res) => {
             }
         }
 
-        // Final fallback - use Shopify's standard cart checkout with draft order
+        // Final fallback - return null so frontend uses standard cart checkoutUrl
         if (!checkoutUrl) {
-            const storeSlug = (process.env.SHOPIFY_STORE || 'myflowers-secours').replace('.myshopify.com', '');
-            // Redirect to the store's draft order payment page
-            checkoutUrl = `https://${storeSlug}.myshopify.com/admin/draft_orders/${draftOrder.id}`;
+            console.warn('  No valid checkout URL found, frontend will use cart.checkoutUrl fallback');
         }
 
         res.json({
