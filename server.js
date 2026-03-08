@@ -2870,30 +2870,55 @@ app.post('/api/checkout/custom', async (req, res) => {
 
         const draftOrder = draftOrderResult.draft_order;
 
-        // Use the invoice_url from the draft order — this is the payment page for the customer
-        let checkoutUrl = draftOrder.invoice_url || null;
-
-        // If invoice_url is not immediately available, request Shopify to generate it
-        if (!checkoutUrl) {
-            try {
-                // Send invoice with empty "to" to just generate the checkout URL
-                const invoiceResult = await shopifyAdminRequest(
-                    `/draft_orders/${draftOrder.id}/send_invoice.json`,
-                    'POST',
-                    { draft_order_invoice: {} }
-                );
-                // After sending invoice, re-fetch the draft order to get the invoice_url
-                const updatedDraft = await shopifyAdminRequest(`/draft_orders/${draftOrder.id}.json`);
-                checkoutUrl = updatedDraft.draft_order?.invoice_url || null;
-            } catch (e) {
-                console.warn('  Could not send invoice:', e.message);
+        // IMMEDIATELY complete the draft order with payment_pending=true
+        // This creates a real order that's ready for checkout
+        let checkoutUrl = null;
+        
+        try {
+            const completeResult = await shopifyAdminRequest(
+                `/draft_orders/${draftOrder.id}/complete.json?payment_pending=true`, 
+                'PUT'
+            );
+            
+            if (completeResult.draft_order) {
+                const completedDraft = completeResult.draft_order;
+                
+                // Get the order's checkout URL
+                if (completedDraft.order_id) {
+                    const orderResult = await shopifyAdminRequest(`/orders/${completedDraft.order_id}.json`);
+                    const order = orderResult.order;
+                    
+                    if (order) {
+                        // Use order_status_url for payment - this is immediately available
+                        checkoutUrl = order.order_status_url;
+                        
+                        // If order is unpaid, we can use the checkout_url or construct payment link
+                        if (order.financial_status === 'pending' || order.financial_status === 'unpaid') {
+                            // The order_status_url should allow payment completion
+                            // Alternative: construct direct checkout URL
+                            if (order.checkout_token) {
+                                const storeSlug = (process.env.SHOPIFY_STORE || 'myflowers-secours').replace('.myshopify.com', '');
+                                checkoutUrl = `https://${storeSlug}.myshopify.com/${order.checkout_id}/checkouts/${order.checkout_token}`;
+                            }
+                        }
+                    }
+                }
+                
+                // Fallback to invoice_url if available
+                if (!checkoutUrl && completedDraft.invoice_url) {
+                    checkoutUrl = completedDraft.invoice_url;
+                }
             }
+        } catch (e) {
+            console.warn('  Could not complete draft order:', e.message);
         }
 
-        // Poll for invoice_url if still not available (max 3 attempts)
+        // If completion failed, try invoice_url from original draft order
         if (!checkoutUrl) {
+            // Poll for invoice_url to be ready (max 3 attempts)
             for (let attempt = 0; attempt < 3 && !checkoutUrl; attempt++) {
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+                
                 try {
                     const updatedDraftResult = await shopifyAdminRequest(`/draft_orders/${draftOrder.id}.json`);
                     checkoutUrl = updatedDraftResult.draft_order?.invoice_url;
@@ -2903,10 +2928,11 @@ app.post('/api/checkout/custom', async (req, res) => {
             }
         }
 
-        // Final fallback — use the standard Shopify cart checkout URL
+        // Final fallback - use Shopify's standard cart checkout with draft order
         if (!checkoutUrl) {
-            console.warn('  No invoice_url available, falling back to cart checkoutUrl');
-            checkoutUrl = null; // Will trigger frontend fallback
+            const storeSlug = (process.env.SHOPIFY_STORE || 'myflowers-secours').replace('.myshopify.com', '');
+            // Redirect to the store's draft order payment page
+            checkoutUrl = `https://${storeSlug}.myshopify.com/admin/draft_orders/${draftOrder.id}`;
         }
 
         res.json({
