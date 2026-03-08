@@ -2870,17 +2870,36 @@ app.post('/api/checkout/custom', async (req, res) => {
 
         const draftOrder = draftOrderResult.draft_order;
 
-        // IMMEDIATELY complete the draft order with payment_pending=true
-        // This creates a real order that's ready for checkout
+        // Complete the draft order with payment_pending=true
+        // Shopify needs time to finish calculating taxes/shipping after creation
+        // so we retry a few times with a delay if it's not ready yet
         let checkoutUrl = null;
         
         try {
-            const completeResult = await shopifyAdminRequest(
-                `/draft_orders/${draftOrder.id}/complete.json?payment_pending=true`, 
-                'PUT'
-            );
+            let completeResult = null;
             
-            if (completeResult.draft_order) {
+            for (let attempt = 0; attempt < 4; attempt++) {
+                // Wait before trying (longer each attempt)
+                await new Promise(resolve => setTimeout(resolve, attempt === 0 ? 1500 : 2000));
+                
+                try {
+                    completeResult = await shopifyAdminRequest(
+                        `/draft_orders/${draftOrder.id}/complete.json?payment_pending=true`, 
+                        'PUT'
+                    );
+                    // Success — break out of retry loop
+                    break;
+                } catch (retryErr) {
+                    const errMsg = typeof retryErr.message === 'string' ? retryErr.message : JSON.stringify(retryErr);
+                    if (errMsg.includes('not finished calculating') && attempt < 3) {
+                        console.warn(`  Draft order not ready, retrying (${attempt + 1}/4)...`);
+                        continue;
+                    }
+                    throw retryErr;
+                }
+            }
+            
+            if (completeResult && completeResult.draft_order) {
                 const completedDraft = completeResult.draft_order;
                 
                 // Get the order's checkout URL
