@@ -352,26 +352,24 @@
 
 /* Accessory Quantity Badge */
 .accessory-qty-badge {
-    position: absolute;
-    bottom: 6px;
-    left: 50%;
-    transform: translateX(-50%) scale(0);
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 0;
     background: #fff;
     border: 2px solid var(--primary, #d4a574);
     border-radius: 20px;
     overflow: hidden;
+    margin-top: 0.4rem;
+    max-height: 0;
     opacity: 0;
     transition: all 0.25s ease;
-    z-index: 2;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .custom-image-button.selected .accessory-qty-badge {
     opacity: 1;
-    transform: translateX(-50%) scale(1);
+    max-height: 36px;
 }
 
 .accessory-qty-badge .qty-minus,
