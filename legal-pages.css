@@ -112,7 +112,10 @@
   padding: 0.62rem 0.75rem;
   font-size: 0.93rem;
   color: var(--text);
-  margin-bottom: 0.5rem;
+}
+
+.legal-aside-item + .legal-aside-item {
+  margin-top: 0.55rem;
 }
 
 .legal-aside-item strong {
