@@ -1267,18 +1267,13 @@ const DeliverySystem = {
                     await new Promise(resolve => setTimeout(resolve, 300));
                     window.location.href = checkoutUrl;
                 } else {
-                    // Fallback: use standard Shopify checkout (keep loader visible during redirect)
+                    this.hideCheckoutLoader();
                     window.location.href = ShopifyIntegration.cart.checkoutUrl;
                 }
             } catch (error) {
                 console.error('Checkout error:', error);
-                // Fallback to standard Shopify checkout on any error
-                if (ShopifyIntegration.cart && ShopifyIntegration.cart.checkoutUrl) {
-                    window.location.href = ShopifyIntegration.cart.checkoutUrl;
-                } else {
-                    this.hideCheckoutLoader();
-                    this.showNotification('Erreur lors de la préparation du paiement. Veuillez réessayer.', 'error');
-                }
+                this.hideCheckoutLoader();
+                this.showNotification('Erreur lors de la préparation du paiement. Veuillez réessayer.', 'error');
             }
         } else {
             this.hideCheckoutLoader();
