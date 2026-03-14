@@ -54,6 +54,20 @@ const DeliverySystem = {
         shopLat: 49.1197,
         shopLng: 6.1744,
         maxLocalDistance: 80, // km max pour livraison locale (par route)
+
+        // Horaires d'ouverture de la boutique
+        // orderCutoffMinutes : marge avant fermeture à partir de laquelle le jour même est bloqué (ex: 30 = bloquer 30min avant fermeture)
+        orderCutoffMinutes: 30,
+        shopHours: {
+            // 0=Dimanche, 1=Lundi, 2=Mardi, 3=Mercredi, 4=Jeudi, 5=Vendredi, 6=Samedi
+            0: null,                          // Dimanche : fermé
+            1: [{ open: 10, close: 19 }],     // Lundi    : 10h-12h / 14h-19h (on prend la plage globale)
+            2: [{ open: 10, close: 19 }],     // Mardi
+            3: [{ open: 10, close: 19 }],     // Mercredi
+            4: [{ open: 10, close: 19 }],     // Jeudi
+            5: [{ open: 10, close: 19 }],     // Vendredi
+            6: [{ open: 9.5, close: 19 }]     // Samedi   : 9h30-19h
+        }
         
         // Tarifs livraison locale (par leurs soins)
         localPricing: [
@@ -134,6 +148,23 @@ const DeliverySystem = {
     },
 
     // ===================================
+    // Check if today is still orderable (shop not yet closed / cutoff not passed)
+    // ===================================
+    isTodayOrderable() {
+        const now = new Date();
+        const dayOfWeek = now.getDay();
+        const hours = this.config.shopHours[dayOfWeek];
+        if (!hours) return false; // closed today
+        // Find the latest closing time
+        const latestClose = Math.max(...hours.map(h => h.close));
+        const closeHour = Math.floor(latestClose);
+        const closeMin = Math.round((latestClose - closeHour) * 60);
+        // Cutoff = closing time minus orderCutoffMinutes
+        const cutoffTotalMin = closeHour * 60 + closeMin - this.config.orderCutoffMinutes;
+        const nowTotalMin = now.getHours() * 60 + now.getMinutes();
+        return nowTotalMin < cutoffTotalMin;
+    },
+
     // Render Custom Calendar
     // ===================================
     renderCalendar() {
@@ -160,6 +191,7 @@ const DeliverySystem = {
 
         const today = new Date();
         today.setHours(0, 0, 0, 0);
+        const todayOrderable = this.isTodayOrderable();
 
         grid.innerHTML = '';
 
@@ -175,11 +207,13 @@ const DeliverySystem = {
             const date = new Date(this.currentCalendarYear, this.currentCalendarMonth, day);
             const dateStr = this.formatDateToISO(date);
             const isPast = date < today;
-            const isSunday = date.getDay() === 0;
+            const isToday = date.getTime() === today.getTime();
+            const dayOfWeek = date.getDay();
+            const isClosed = !this.config.shopHours[dayOfWeek]; // null = fermé ce jour
+            const isTodayBlocked = isToday && !todayOrderable; // cutoff dépassé
             // Check unavailable dates for local delivery OR pickup
             const isUnavailable = (this.selectedMode === 'local' || this.selectedMode === 'pickup') && !this.isDateAvailable(dateStr);
             const isSelected = this.selectedDate === dateStr;
-            const isToday = date.getTime() === today.getTime();
 
             const dayCell = document.createElement('div');
             dayCell.className = 'calendar-day';
@@ -188,13 +222,12 @@ const DeliverySystem = {
             if (isToday) dayCell.classList.add('today');
             if (isSelected) dayCell.classList.add('selected');
             
-            // Disable past dates, Sundays, or unavailable dates
-            if (isPast || isSunday || isUnavailable) {
+            // Disable past dates, closed days, cutoff passed, or unavailable dates
+            if (isPast || isClosed || isTodayBlocked || isUnavailable) {
                 dayCell.classList.add('disabled');
-                if (isSunday) dayCell.title = 'Fermé le dimanche';
-                if (isUnavailable) {
-                    dayCell.title = 'Date indisponible';
-                }
+                if (isClosed) dayCell.title = dayOfWeek === 0 ? 'Fermé le dimanche' : 'Boutique fermée';
+                if (isTodayBlocked) dayCell.title = 'Commandes clôturées pour aujourd'hui';
+                if (isUnavailable) dayCell.title = 'Date indisponible';
             } else {
                 dayCell.classList.add('available');
                 dayCell.addEventListener('click', () => {
