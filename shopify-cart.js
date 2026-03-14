@@ -1423,7 +1423,8 @@ const ShopifyIntegration = {
         if (itemOptions.length > 0) {
             optionsHTML = '<div class="cart-item-options" style="display:flex;flex-direction:column;gap:0.25rem;margin-top:0.4rem;">';
             itemOptions.forEach(opt => {
-                optionsHTML += `<span class="cart-option" style="display:block;"><i class="fas fa-check"></i> <strong style="color:#555;">${opt.label || opt.name} :</strong> ${opt.value}${opt.price > 0 ? ' (+' + opt.price.toFixed(2) + '€)' : ''}</span>`;
+                const hideOptPrice = (opt.label || opt.name).toLowerCase().includes('nombre de roses');
+                optionsHTML += `<span class="cart-option" style="display:block;"><i class="fas fa-check"></i> <strong style="color:#555;">${opt.label || opt.name} :</strong> ${opt.value}${!hideOptPrice && opt.price > 0 ? ' (+' + opt.price.toFixed(2) + '€)' : ''}</span>`;
             });
             optionsHTML += '</div>';
         }
