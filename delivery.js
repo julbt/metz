@@ -54,18 +54,6 @@ const DeliverySystem = {
         shopLat: 49.1197,
         shopLng: 6.1744,
         maxLocalDistance: 80, // km max pour livraison locale (par route)
-
-        // Horaires d'ouverture de la boutique
-        orderCutoffMinutes: 30,
-        shopHours: {
-            0: null,
-            1: [{ open: 10, close: 19 }],
-            2: [{ open: 10, close: 19 }],
-            3: [{ open: 10, close: 19 }],
-            4: [{ open: 10, close: 19 }],
-            5: [{ open: 10, close: 19 }],
-            6: [{ open: 9.5, close: 19 }]
-        }
         
         // Tarifs livraison locale (par leurs soins)
         localPricing: [
@@ -81,7 +69,23 @@ const DeliverySystem = {
         },
         
         // Retrait en boutique
-        pickupPrice: 0
+        pickupPrice: 0,
+
+        // Horaires d'ouverture de la boutique (0 = Dimanche, 1 = Lundi, ..., 6 = Samedi)
+        // null = fermé ce jour-là
+        shopHours: {
+            0: null,                          // Dimanche : Fermé
+            1: { open: '10:00', close: '19:00' }, // Lundi
+            2: { open: '10:00', close: '19:00' }, // Mardi
+            3: { open: '10:00', close: '19:00' }, // Mercredi
+            4: { open: '10:00', close: '19:00' }, // Jeudi
+            5: { open: '10:00', close: '19:00' }, // Vendredi
+            6: { open: '09:30', close: '19:00' }  // Samedi
+        },
+
+        // Marge en minutes avant fermeture : au-delà, le jour même est bloqué
+        // Ex: 30 = la commande pour aujourd'hui est bloquée 30 min avant fermeture
+        orderCutoffMarginMinutes: 30
     },
 
     // State
@@ -133,6 +137,38 @@ const DeliverySystem = {
     },
 
     // ===================================
+    // Check if shop is open on a given date
+    // ===================================
+    isShopOpenOnDate(date) {
+        const dayOfWeek = date.getDay(); // 0=Dim, 1=Lun, ..., 6=Sam
+        const hours = this.config.shopHours[dayOfWeek];
+        return hours !== null && hours !== undefined;
+    },
+
+    // ===================================
+    // Check if today is still available for order
+    // (returns false if current time >= closing - margin)
+    // ===================================
+    isTodayStillAvailable() {
+        const now = new Date();
+        const dayOfWeek = now.getDay();
+        const hours = this.config.shopHours[dayOfWeek];
+
+        // Shop is closed today
+        if (!hours) return false;
+
+        // Parse closing time
+        const [closeH, closeM] = hours.close.split(':').map(Number);
+        const margin = this.config.orderCutoffMarginMinutes || 0;
+
+        // Calculate cutoff time = closing time - margin
+        const cutoffMinutes = (closeH * 60 + closeM) - margin;
+        const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+        return nowMinutes < cutoffMinutes;
+    },
+
+    // ===================================
     // Check if date is available
     // ===================================
     isDateAvailable(dateStr) {
@@ -146,21 +182,6 @@ const DeliverySystem = {
     },
 
     // ===================================
-    // Check if today is still orderable (shop not yet closed / cutoff not passed)
-    // ===================================
-    isTodayOrderable() {
-        const now = new Date();
-        const dayOfWeek = now.getDay();
-        const hours = this.config.shopHours[dayOfWeek];
-        if (!hours) return false;
-        const latestClose = Math.max(...hours.map(h => h.close));
-        const closeHour = Math.floor(latestClose);
-        const closeMin = Math.round((latestClose - closeHour) * 60);
-        const cutoffTotalMin = closeHour * 60 + closeMin - this.config.orderCutoffMinutes;
-        const nowTotalMin = now.getHours() * 60 + now.getMinutes();
-        return nowTotalMin < cutoffTotalMin;
-    },
-
     // Render Custom Calendar
     // ===================================
     renderCalendar() {
@@ -187,7 +208,6 @@ const DeliverySystem = {
 
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        const todayOrderable = this.isTodayOrderable();
 
         grid.innerHTML = '';
 
@@ -198,18 +218,22 @@ const DeliverySystem = {
             grid.appendChild(emptyCell);
         }
 
+        // Check if today is still orderable (before cutoff)
+        const todayStillAvailable = this.isTodayStillAvailable();
+
         // Add days of month
         for (let day = 1; day <= numDays; day++) {
             const date = new Date(this.currentCalendarYear, this.currentCalendarMonth, day);
             const dateStr = this.formatDateToISO(date);
             const isPast = date < today;
-            const dayOfWeek = date.getDay();
-            const isClosed = !this.config.shopHours[dayOfWeek];
-            const isTodayBlocked = isToday && !todayOrderable;
+            const isToday = date.getTime() === today.getTime();
+            // Shop closed this day (Sunday or other closed days from config)
+            const isShopClosed = !this.isShopOpenOnDate(date);
+            // Today specifically blocked because past cutoff time
+            const isTodayPastCutoff = isToday && !todayStillAvailable;
             // Check unavailable dates for local delivery OR pickup
             const isUnavailable = (this.selectedMode === 'local' || this.selectedMode === 'pickup') && !this.isDateAvailable(dateStr);
             const isSelected = this.selectedDate === dateStr;
-            const isToday = date.getTime() === today.getTime();
 
             const dayCell = document.createElement('div');
             dayCell.className = 'calendar-day';
@@ -218,11 +242,11 @@ const DeliverySystem = {
             if (isToday) dayCell.classList.add('today');
             if (isSelected) dayCell.classList.add('selected');
             
-            // Disable past dates, Sundays, or unavailable dates
-            if (isPast || isClosed || isTodayBlocked || isUnavailable) {
+            // Disable past dates, closed days, past-cutoff today, or unavailable dates
+            if (isPast || isShopClosed || isTodayPastCutoff || isUnavailable) {
                 dayCell.classList.add('disabled');
-                if (isClosed) dayCell.title = dayOfWeek === 0 ? 'Fermé le dimanche' : 'Boutique fermée';
-                if (isTodayBlocked) dayCell.title = "Commandes clôturées pour aujourd'hui";
+                if (isShopClosed) dayCell.title = 'Boutique fermée';
+                if (isTodayPastCutoff) dayCell.title = 'Trop tard pour commander aujourd\'hui';
                 if (isUnavailable) dayCell.title = 'Date indisponible';
             } else {
                 dayCell.classList.add('available');
@@ -900,7 +924,9 @@ const DeliverySystem = {
             }
             
             // Show hint with unavailable dates if any
-            let hintText = 'Livraison possible le jour même selon disponibilité*';
+            let hintText = this.isTodayStillAvailable()
+                ? 'Livraison possible le jour même selon disponibilité*'
+                : 'Livraison à partir de demain (heure limite dépassée pour aujourd\'hui)';
             if (this.unavailableDates.length > 0) {
                 const sortedDates = [...this.unavailableDates].sort();
                 const formattedDates = sortedDates.map(dateStr => {
@@ -925,7 +951,9 @@ const DeliverySystem = {
             const today = new Date().toISOString().split('T')[0];
             dateInput.min = today;
             // Ajout affichage dates indisponibles retrait
-            let hintText = "Retrait possible le jour même aux horaires d'ouverture*";
+            let hintText = this.isTodayStillAvailable()
+                ? "Retrait possible le jour même aux horaires d'ouverture*"
+                : "Retrait à partir de demain (heure limite dépassée pour aujourd'hui)";
             if (this.unavailablePickupDates.length > 0) {
                 const sortedDates = [...this.unavailablePickupDates].sort();
                 const formattedDates = sortedDates.map(dateStr => {
@@ -1079,24 +1107,33 @@ const DeliverySystem = {
         const selectedDate = new Date(this.selectedDate);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        const todayOrderable = this.isTodayOrderable();
 
-        // Check if Sunday
-        if (selectedDate.getDay() === 0) {
-            this.showDateError('⛔ La boutique est fermée le dimanche. Veuillez choisir un autre jour.');
+        // Check if shop is closed on this day (Sunday or any other closed day)
+        if (!this.isShopOpenOnDate(selectedDate)) {
+            this.showDateError('⛔ La boutique est fermée ce jour-là. Veuillez choisir un autre jour.');
             this.selectedDate = null;
             dateInput.value = '';
             this.renderCalendar();
             return false;
         }
 
-        // Check if date is unavailable (only for local delivery)
-        if (this.selectedMode === 'local') {
+        // Check if today is selected but past cutoff
+        const isToday = selectedDate.getTime() === today.getTime();
+        if (isToday && !this.isTodayStillAvailable()) {
+            this.showDateError('⛔ Il est trop tard pour commander aujourd\'hui. Veuillez choisir un autre jour.');
+            this.selectedDate = null;
+            dateInput.value = '';
+            this.renderCalendar();
+            return false;
+        }
+
+        // Check if date is unavailable (for local delivery or pickup)
+        if (this.selectedMode === 'local' || this.selectedMode === 'pickup') {
             const dateStr = this.selectedDate;
             if (!this.isDateAvailable(dateStr)) {
                 const date = new Date(dateStr + 'T12:00:00');
                 const formatted = date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
-                this.showDateError(`⛔ Le ${formatted} n'est pas disponible pour la livraison. Veuillez en choisir une autre.`);
+                this.showDateError(`⛔ Le ${formatted} n'est pas disponible. Veuillez en choisir une autre.`);
                 this.selectedDate = null;
                 dateInput.value = '';
                 this.renderCalendar();
