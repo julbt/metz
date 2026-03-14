@@ -3020,7 +3020,17 @@ app.get('/api/orders/:id/fulfillment_orders', async (req, res) => {
 app.post('/api/orders/:id/fulfillments', async (req, res) => {
     try {
         const fulfillmentData = req.body;
-        const data = await shopifyAdminRequest(`/fulfillments.json`, 'POST', fulfillmentData);
+        // Shopify 2022-01+ fulfillment API: POST to /fulfillments.json with notify_customer
+        const payload = {
+            fulfillment: {
+                ...fulfillmentData.fulfillment,
+                notify_customer: true
+            }
+        };
+        const data = await shopifyAdminRequest(`/fulfillments.json`, 'POST', payload);
+        if (data.errors) {
+            return res.status(422).json({ error: JSON.stringify(data.errors) });
+        }
         res.json(data);
     } catch (error) {
         res.status(500).json({ error: error.message });
