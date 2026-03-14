@@ -661,31 +661,7 @@ const DeliverySystem = {
                 localCityField.value = addr.city;
             }
             
-            // Pre-select GLS Domicile mode if address exists
-            const streetVal = addr.address1 || addr.street;
-            const zipVal = addr.zip || addr.postalCode;
-            if (streetVal && zipVal && addr.city) {
-                const glsDomicileOption = overlay.querySelector('[data-mode="france"]');
-                if (glsDomicileOption) {
-                    glsDomicileOption.classList.add('selected');
-                    overlay.querySelectorAll('[data-mode]').forEach(o => {
-                        if (o !== glsDomicileOption) o.classList.remove('selected');
-                    });
-                    
-                    // Set the domicile sub-option as selected
-                    const domicileSuboption = overlay.querySelector('.gls-suboption[data-sub="domicile"]');
-                    if (domicileSuboption) {
-                        overlay.querySelectorAll('.gls-suboption').forEach(s => s.classList.remove('selected'));
-                        domicileSuboption.classList.add('selected');
-                        domicileSuboption.querySelector('input').checked = true;
-                    }
-                    
-                    this.selectMode('france');
-                    this.selectedSubMode = 'domicile';
-                    this.updateGlsAddressVisibility();
-                    this.updatePricing();
-                }
-            }
+            // Address is prefilled; distance will be calculated when user selects local mode
         } catch (e) {
             console.warn('Could not prefill from user account:', e);
         }
@@ -884,6 +860,15 @@ const DeliverySystem = {
             localSection.classList.add('visible');
             const today = new Date().toISOString().split('T')[0];
             dateInput.min = today;
+            
+            // If fields are already prefilled, trigger distance calculation
+            const prefillStreet = document.getElementById('deliveryAddressInput')?.value;
+            const prefillZip = document.getElementById('deliveryAddressZip')?.value;
+            const prefillCity = document.getElementById('deliveryAddressCity')?.value;
+            if (prefillStreet && prefillZip && prefillCity && !this.deliveryDistance) {
+                const fullAddress = `${prefillStreet}, ${prefillZip} ${prefillCity}, France`;
+                this.calculateDistance(fullAddress);
+            }
             
             // Show hint with unavailable dates if any
             let hintText = 'Livraison possible le jour même selon disponibilité*';
