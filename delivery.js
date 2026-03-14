@@ -643,6 +643,24 @@ const DeliverySystem = {
                 cityField.value = addr.city;
             }
             
+            // Pre-fill local delivery fields (par leurs soins)
+            const localNameField = document.getElementById('deliveryAddressName');
+            if (localNameField && (addr.firstName || user.firstName) && (addr.lastName || user.lastName)) {
+                localNameField.value = `${addr.firstName || user.firstName} ${addr.lastName || user.lastName}`;
+            }
+            const localStreetField = document.getElementById('deliveryAddressInput');
+            if (localStreetField && (addr.address1 || addr.street)) {
+                localStreetField.value = addr.address1 || addr.street;
+            }
+            const localZipField = document.getElementById('deliveryAddressZip');
+            if (localZipField && (addr.zip || addr.postalCode)) {
+                localZipField.value = addr.zip || addr.postalCode;
+            }
+            const localCityField = document.getElementById('deliveryAddressCity');
+            if (localCityField && addr.city) {
+                localCityField.value = addr.city;
+            }
+            
             // Pre-select GLS Domicile mode if address exists
             const streetVal = addr.address1 || addr.street;
             const zipVal = addr.zip || addr.postalCode;
