@@ -53,13 +53,13 @@ const DeliverySystem = {
         shopAddress: '21 Rue Lafayette, 57000 Metz, France',
         shopLat: 49.1197,
         shopLng: 6.1744,
-        maxLocalDistance: 50, // km max pour livraison locale (par route)
+        maxLocalDistance: 80, // km max pour livraison locale (par route)
         
         // Tarifs livraison locale (par leurs soins)
         localPricing: [
             { maxKm: 10, price: 0, label: 'Gratuit' },
             { maxKm: 35, price: 10, label: '10,00 €' },
-            { maxKm: 50, price: 20, label: '20,00 €' }
+            { maxKm: 80, price: 20, label: '20,00 €' }
         ],
         
         // Tarifs France (GLS)
@@ -286,7 +286,7 @@ const DeliverySystem = {
                                     <i class="fas fa-motorcycle"></i>
                                     Livraison par My Flowers
                                 </h4>
-                                <p>Livraison par nos soins dans un rayon de 50 km autour de Metz. Gratuit dans le secteur de Metz !</p>
+                                <p>Livraison par nos soins dans un rayon de 80 km autour de Metz. Gratuit dans le secteur de Metz !</p>
                             </div>
                             <div class="delivery-option-price free">Dès 0 €</div>
                         </div>
@@ -936,7 +936,7 @@ const DeliverySystem = {
         try {
             // Use Nominatim (OpenStreetMap) for free geocoding
             const response = await fetch(
-                `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&countrycodes=fr,be,lu&limit=1`,
+                `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&countrycodes=fr&limit=1`,
                 { headers: { 'Accept-Language': 'fr' } }
             );
             const data = await response.json();
