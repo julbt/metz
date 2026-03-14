@@ -312,7 +312,7 @@ const DeliverySystem = {
                                     </label>
                                 </div>
                                 <div id="relaisInfoMessage" style="display: none; background: #E3F2FD; border-left: 4px solid #2196F3; padding: 0.75rem; border-radius: 4px; margin-top: 0.75rem; font-size: 0.85rem; color: #1565C0;">
-                                    <i class="fas fa-info-circle"></i> <strong>Le point relais est sélectionné automatiquement — le plus proche de l'adresse indiquée.</strong>
+                                    <i class="fas fa-info-circle"></i> <strong>Le point relais est sélectionné automatiquement selon votre adresse de livraison, après paiement.</strong>
                                 </div>
                                 <div class="gls-address-section" id="glsAddressSection" style="display: none; margin-top: 1rem;">
                                     <label style="font-size: 0.9rem; font-weight: 600; color: #5A5A5A; display: block; margin-bottom: 0.5rem;">
